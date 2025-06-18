@@ -1,0 +1,517 @@
+AIRPLANE CRASH SEVERITY PREDICTION
+USING MACHINE LEARNING
+Jay Mehta
+Department Of Computer Science
+Sardar Patel Institute Of Technology
+Mumbai, India
+jay.mehta@spit.ac.in
+Vaidehi Vatsaraj
+Department Of Computer Science
+Sardar Patel Institute Of Technology
+Mumbai, India
+vaidehi.vatsaraj@spit.ac.in
+Jinal Shah
+Department Of Computer Science
+Sardar Patel Institute Of Technology
+Mumbai, India
+jinal.shah@spit.ac.in
+Anand Godbole
+Department Of Computer Science
+Sardar Patel Institute Of Technology
+Mumbai, India
+anand godbole@spit.ac.in
+Abstract—Airplanes are considered as the fastest and most
+preferred mode of travel all around the world. However, air travel
+always comes with the risk of accidents and plane crashes. The
+severity of these hazards spans over a range from moderate to
+even fatal depending on a number of parameters. This paper
+proposes a methodology to predict airplane crash severity using
+several machine learning algorithms. Out of the many factors
+that have an impact on the crash, nine of them having a
+major correlation are taken into consideration. The prediction
+categories are made based on the number of fatalities and the
+amount of damage caused to the aircraft. Algorithms such as
+Support Vector Machine, Random Forest, Gradient Boosting
+Classifier, K Nearest Neighbors Classifier, Logistic Regression
+and an Artificial Neural Network are applied along with ensemble
+techniques and the results are compared to provide a realistic
+and reliable prediction.
+Index Terms—Airplane Crash, Severity Prediction, Machine
+Learning Algorithms, Artificial Neural Networks, Stacking Ensemble
+I. INTRODUCTION
+Aviation provides a rapid network all across the world making
+it a crucial mode of transportation. It is used for a variety
+of reasons and supports 65.5 millions of jobs and contributes
+$2.7 trillion in global GDP [1]. It fosters economic growth and
+national-international trade and tourism, creates employment
+opportunities and acts as a boon in situations of calamities. Since the first flight in 1903, the Airport Industry has
+undergone substantial changes improving the overall flight
+experience, safety quotient and expanding the network to
+connect all countries. While air transportation is considered
+to be the safest mode, survival rate in an aircraft accident
+is very low as the results of the crash may be catastrophic.
+Airplane accidents are never attributed to one cause and are
+usually a combination of multiple, sometimes one leading to
+another as referred to in the industry as ‘Swiss Cheese Model’
+[2]. Hence it is important to consider all parameters playing a
+role in the operation of aircrafts. Common causes of accidents
+include human error (pilot/ air traffic controller/ dispatcher),
+mechanical failure, bad weather etc. In any circumstances, it
+becomes necessary to predict the possible number of fatalities
+and injuries i.e human loss and damage to the aircraft. This is
+observed to depend on factors such as geographic location of
+accident, weather type, type of engine etc.
+Machine Learning is a technique that can classify data and
+make predictions without predetermined rules. This paper
+focuses on using machine learning algorithms to predict the
+crash severity. Crash severity mainly has two parts, viz damage
+to the aircraft and human loss. The paper explores algorithms
+such as Support Vector Machine, Random Forest, Gradient
+Boosting Classifier, K Nearest Neighbors Classifier, Logistic
+Regression and an Artificial Neural Network, compares the
+results and justifies them. It also utilizes the stacking ensemble
+technique to further enhance the accuracy of the model. The
+dataset for the same is obtained from The National Transportation Safety Board and consists of airplane casualties from 1962
+to February 2021.
+The remainder of the paper is organized as follows. Section
+II expatiates on related work in the domain of Airline Safety,
+Crash and Severity detection. Section III discusses the dataset
+used and methodology proposed. Section IV reports the observations and results and justifies them. Section V concludes
+the paper and paves a way for the future work.
+II. LITERATURE SURVEY
+Multiple papers reviewed during the research phase gave an
+overview of the background work already done and helped in
+choosing the algorithms. Papers studied during the research
+phase were pertaining to Machine Learning domain, usage of
+Machine Learning techniques to identify causes of Airplanes
+accidents and predict the possibility of such accidents.
+Although there has been a rapid increase in the published
+information in recent years, data may not always be obtained in
+the desired format and hence data preprocessing plays a major
+IEEE - 51525
+12th ICCCNT 2021
+July 6-8, 2021 - IIT - Kharagpur
+Kharagpur, India
+2021 12th International Conference on Computing Communication and Networking Technologies (ICCCNT) | 978-1-7281-8595-8/21/$31.00 ©2021 IEEE | DOI: 10.1109/ICCCNT51525.2021.9579711
+Authorized licensed use limited to: Alliance University. Downloaded on June 16,2025 at 06:37:56 UTC from IEEE Xplore. Restrictions apply.
+role in KDD (Knowledge Discovery in Databases). Paper [3]
+reviews some of the techniques for data cleaning, handling
+missing values, reduction of noisy data, data discretization
+and discusses their reliability. Once the data is converted
+into target form, it can be analysed to draw patterns in
+a more efficient way. Artificial Intelligence is capable of
+drawing correlations between entities and making reasonable
+predictions without human intervention. Paper [4] reviews
+types of machine learning and discusses various algorithms
+along with their areas of strength and weaknesses. This paper
+gave a deeper understanding of the working of algorithms and
+helped us navigate the potential algorithms for proposed study.
+Paper [5], implements a Logistic regression model on Aviation
+data to predict whether the flights are accident prone or
+not. Dataset for the model is chosen from Aviation Safety
+Network and consists of 6000 records of accident data. Various
+parameters of the data are factors identified to be possible
+causes of accidents including Airplane, Flight Crew, Weather,
+Maintenance etc. Proposed Logistic Model reported good
+value of precision, recall and concluded that maintenance of
+aircraft will significantly reduce the risk of accidents. Paper
+[6], explores use of the Decision Tree model on aviation data
+to find the effective parameters to reduce the number of deaths
+in aviation. The model was applied on accident reports of FAA
+containing 468 data records between the years 1970 to 2011.
+For implementation and analysis purposes, the Decision Tree
+module of WEKA was used and the generated model predicted
+warnings of accidents reporting 87.39% accuracy. Paper [7],
+proposes prediction of fatalities in air accidents using machine
+learning algorithms. This paper considers data from Kaggle
+with 5000 data points. After preprocessing, the data is split into
+3:1 ratio. It utilises Neural Network, Chi-squared Automatic
+Interaction Detection model, XGBoost Tree Model, Random
+Forest Algorithm, Generalized and multiple linear models to
+make predictions. Out of many algorithms, Random Forest
+algorithm has found wide range of applications in clustering
+as well as regression due to its ability to evaluate the impact of
+features and is exploited in paper [8], which proposes a realtime crash prediction system wherein initially Random Forest
+selects significant features and Bayesian Network Model performs the forecasting. The data containing fields like traffic,
+speed, occupancy was recorded by sensors and was used to
+build and evaluate the model. Performance of the model was
+examined by an ROC Curve and reported 70.46% of accuracy
+with a .07% of false alarm rate. Similarly, paper [9] deploys
+a Random Forest algorithm to diagnose the airline turbulence.
+Paper [10], implements Decision Tree Classifier, K-Nearest
+Neighbors, Support Vector Machine, Artificial Neural Network
+on data derived from FAA to predict the injuries and fatalities.
+The data consisted of accident records from 1975 to 2002
+and was preprocessed to remove redundant parameters, categorize numerical data etc. Said classification algorithms were
+applied to predict the accident severity in terms of number
+of injuries and casualties. The Artificial Neural Network was
+found to give the most appropriate result even though all
+models reported promising results. This paper gave a deeper
+understanding on neural networks and why it reports the best
+results.
+Paper [11], proposed a novel method of combining the results
+from ensemble of machine learning and deep learning models
+for prediction of risk level to ensure aviation system security.
+12 years of aviation data obtained from Aviation Reporting
+System Database is first preprocessed to get rid of noisy data.
+Then the ensemble classifier system utilizing SVM and Naive
+Bayes classifier is combined with the RNN(Recurrent Neural
+Network) model to be used for forecasting risk level in air
+transport. The efficient hybrid model exhibited strength of
+both the models and provided an accuracy of 88%. Paper [12]
+presents a real time integrated health monitoring framework to
+detect anomalous flight behaviour. The steps of experimentation include data preprocessing wherein raw data is resampled
+using decimation by removing high frequency components and
+then down sampling it. After this step, using Kernel PCA
+coupled with Cosine Similarity, relevant features are extracted
+from the data and the selected features are trained using the
+SVR model to monitor engine status. Paper [13] adopts an
+innovative statistical approach involving the use of Bayesian
+inference and Hierarchical structures to develop estimation
+and prediction models. The models developed explore safety
+incident data, efficiently identify anomalies, assess the level
+of risk, define an objective framework for comparing air
+carriers, and finally predict and anticipate incidents. Paper [14]
+proposes a hazard identification and prediction system using
+PSO optimized SVM and LSTM neural network. Paper [15]
+posits that most flight-related fatalities occur owing to loss of
+state awareness and exploits strength of SVM to predict the
+attentiveness of pilot during flight. Paper [16] predicts whether
+the airline crash has occurred due to a bird strike using data
+mining techniques. Paper [17] demonstrates traffic accident
+prediction based on traffic flow, weather and other factors
+using a Convolutional Neural Network (TAP-CNN). Paper [18]
+uses different data mining techniques and algorithms to predict
+the probability of road accidents and also predicts accident
+prone locations with a higher emphasis on state highways and
+ordinary district roads.
+III. PROPOSED METHODOLOGY
+This section discusses the methodology employed to predict
+the severity of aviation accidents. This involves a number
+of steps including obtaining the data, preprocessing it and
+applying various machine learning algorithms.
+1) Dataset Used: The dataset is obtained from The National
+Transportation Safety Board (NTSB), an independent federal
+accident investigation agency. The dataset consists of airplane
+accidents from 1962 to February 2021. Out of the 30 parameters given in the dataset, 9 exhibited correlation with the
+output parameter and hence were chosen for the study. The
+parameters chosen are as follows:
+• Latitude: Geographical latitude of the crash.
+• Longitude: Geographical longitude of the crash.
+IEEE - 51525
+12th ICCCNT 2021
+July 6-8, 2021 - IIT - Kharagpur
+Kharagpur, India
+Authorized licensed use limited to: Alliance University. Downloaded on June 16,2025 at 06:37:56 UTC from IEEE Xplore. Restrictions apply.
+• Amateur Built: This parameter states whether the aircraft
+is built by an individual or a professional entity
+• Number of Engines: Number of engines present in the
+aircraft.
+• Engine Type: Type of engine present in the aircraft. For
+example Reciprocating, Turbo Shaft, Turbo Jet etc.
+• Broad Phase of Flight: The phase of flight during the
+crash. For example Landing, Takeoff, Maneuvering etc.
+• Purpose of Flight: The purpose of the flight’s operation.
+For example Business, Flight Test, Firefighting etc.
+• Weather Condition: Weather condition during the crash.
+For example VMC (Visual Meteorological Conditions),
+IMC (Instrumental Meteorological Conditions) etc.
+• Total Passengers Onboard: The number of people (including staff and pilot) on the aircraft at the time of crash.
+2) Prediction Basis: Severity of an accident can be best
+described in terms of human loss and vehicle damage. Hence
+Aircraft Crash Severity is decided based upon casualties and
+damage happened to the aircraft. The dataset contains information about damage dealt to the aircraft and was categorized
+as shown in Table I.
+TABLE I
+CATEGORIES BASED ON DAMAGE DEALT.
+Categories Description
+Destroyed Highest Damage
+Substantial Mediocre Damage
+Minor Lowest Damage
+The dataset in consideration contained the number of fatalities
+and injuries caused during each accident and was used to
+categorize the severity based on human loss as shown in Table
+II.
+TABLE II
+CATEGORIES BASED ON FATALITIES.
+Categories Description
+Highly Fatal 4 or more fatalities
+Significantly Fatal 3 or less fatalities
+Non-Fatal No fatalities but injuries
+If these categories are combined, we get 9 categories. Since
+there is no such accident which was highly fatal but did
+minor damage to the airplane, we are left with the following
+8 categories:
+• Highly Fatal and Destroyed
+• Highly Fatal and Substantial
+• Significantly Fatal and Destroyed
+• Significantly Fatal and Substantial
+• Significantly Fatal and Minor
+• Non-Fatal and Destroyed
+• Non-Fatal and Substantial
+• Non-Fatal and Minor
+3) Data Preprocessing: Data preprocessing is one of the most
+important parts of machine learning projects. Raw and unstructured data obtained from the database has to be transformed
+into a suitable format for further processing. It ameliorates the
+accuracy and efficiency of the overall model.
+Fig. 1. Data Preprocessing Flow Chart.
+The following steps were followed for preprocessing the
+received data:
+• Deleting the non-required fields: The dataset received had
+many fields like airplane id and incident category which
+were either irrelevant or not required. These columns
+were deleted.
+• Filtering Aircraft Category: The dataset received was of
+multiple types of aircrafts like blimps or gliders which
+had extremely less number of accidents and hence needed
+to be removed.
+• Filling ‘NaN’ values: The dataset received had many
+numeric fields with ‘NaN’ values instead of ‘0’, hence
+these were replaced by ‘0’.
+• One Hot Encoding: The dataset received had many categorical columns. Many encoding schemes were tried
+IEEE - 51525
+12th ICCCNT 2021
+July 6-8, 2021 - IIT - Kharagpur
+Kharagpur, India
+Authorized licensed use limited to: Alliance University. Downloaded on June 16,2025 at 06:37:56 UTC from IEEE Xplore. Restrictions apply.
+but best results were obtained using one hot encoding
+scheme.
+• Making Categories: The prediction categories were made
+according to Section 3.2.
+• Cleaning Dataset: Checking datatype of the dataset and
+rechecking that the dataset has all valid values i.e. no
+‘infinity’ or ‘NaN’ values and discarding if there are any.
+• Shuffling Dataset: Shuffling the dataset helps to reduce
+variance and makes data uniform. Moreover, it makes the
+models more general and prevents overfitting.
+• Standard Scaling: Standard Scaling is a technique used
+to subtract the feature and scale it to unit variance. It is
+done feature-wise independently.
+• Train Test Split: Data is split in 4:1 ratio for training and
+testing respectively.
+4) Algorithms Used: Machine Learning algorithms are a set
+of methodologies that are capable of unravelling the hidden
+patterns in data and deduce relations between input and output
+parameters using a set of rules. These algorithms observe
+different approaches, assumptions and statistical measures
+accommodating wide range of cases. This property justifies
+the fact that the models built using different algorithms have
+different areas of strength and weaknesses making it mandatory to employ variety of algorithms for a particular use case.
+The following algorithms were used to predict airplane crash
+severity:
+• Support Vector Machine: Support Vector Machine (SVM)
+is a supervised machine learning algorithm used for
+classification. It plots the data points in n-dimensional
+space and generates a hyperplane to make the classification. SVM was chosen as it has no overfitting tendency
+and performs well with a limited amount of data to
+analyze. Since results obtained from SVM also depend
+on the parameters,”Grid Search CV” was used for hyper
+parameter tuning to obtain best parameters.
+• Random Forest Classifier: Random Forest Classifier is
+a supervised classification algorithm that consists of
+multiple decision trees. These trees are merged together
+to obtain an accurate and stable result. It has almost
+the same hyperparameters as a decision tree or a bagging classifier. This classifier averages and combines the
+results of multiple decision trees and hence possesses
+high immunity to overfitting. It is very flexible, has less
+variance and displays high accuracy making it the most
+suited algorithm for any kind of data.
+• Gradient Boosting Classifier: Gradient Boosting Classifier is a supervised classification ensemble and boosting
+technique. It works in a stage-wise fashion, where it relies
+on intuition to build the next best model. The errors of the
+previous stages are minimized in the current stage thus
+minimizing the overall prediction error. At each stage,
+n (number of classes) regression trees are fitted except
+in binary classification where only one regression tree is
+used. This fitting is done on a negative gradient binomial
+or multinomial deviance loss function.
+• K Nearest Neighbors Classifier: K Nearest Neighbors
+Classifier is a supervised classification algorithm and is
+one of the simplest yet effective algorithms in machine
+learning. It plots all the data points and then looks for
+‘K’ number of nearest neighbors and takes the majority
+of those to predict the class or classify. It is intensely used
+in many real life scenarios as it is non-parametric i.e. it
+does not make any assumptions about the distribution of
+data. The optimal value of ‘K‘ is the square root of the
+total number of samples in most cases.
+• Logistic Regression: Logistic Regression is a supervised
+classification model that uses a sigmoid function (Logistic
+Function) for classification. Binary Logistic model is the
+most basic LR model wherein the dependent variable
+takes two values and multinomial Logistic Regression
+wherein the output variable takes more than two values
+but still is categorical. It uses regression to predict the
+probability. This algorithm does not make any assumptions unlike Naive Bayes Classifier making it suitable for
+all kinds of data. Immunity to overfitting and the fast
+nature of this algorithm makes it appropriate to be used
+with our dataset.
+• Artificial Neural Network: Artificial Neural Network is
+a group of interconnected nodes. Each node acts as a
+neuron. These neurons are arranged in multiple computational layers. There is an input and an output layer.
+Between these 2 layers are the hidden layers. An artificial
+neural network simulates the electrical activity of a brain.
+Artificial neural network was chosen because it is extremely accurate, works with insufficient knowledge, has
+high fault tolerance and is very efficient with detecting
+complex non-linear relationships between dependent and
+independent variables.
+• Stacking Ensemble Model: Stacking is an ensemble learning algorithm that combines predictions from two or more
+models (divided into base and meta models).The base
+level models are trained based on a complete training
+set, then corresponding meta models are trained on the
+outputs of the base level model. This uses a single model
+to harness the performance of multiple models yielding
+better results than individual models. For the purpose of
+this study, Random Forest Classifier, Gradient Boosting
+Classifier, Support Vector Machine, K Nearest Neighbor
+Classifier and Logistic Regression were stacked to form
+a single stacking model.
+IV. RESULT
+Fig. 2. shows the accuracy visualization of all the algorithms
+discussed in Section III. Stacking Ensemble Model gives the
+highest accuracy i.e. 91.66% followed by the Artificial Neural
+Network with an accuracy of 91.51%. All the models are
+significantly accurate with the accuracies being above 90%.
+Also, the precision and recall scores for all the algorithms
+indicate that the models are equitably balanced and give
+reliable predictions.
+IEEE - 51525
+12th ICCCNT 2021
+July 6-8, 2021 - IIT - Kharagpur
+Kharagpur, India
+Authorized licensed use limited to: Alliance University. Downloaded on June 16,2025 at 06:37:56 UTC from IEEE Xplore. Restrictions apply.
+Fig. 2. Accuracy of Different Algorithms.
+TABLE III
+RESULT TABLE.
+Model Accuracy Precision Recall
+SVM 90.89 0.9089 0.9089
+Random Forest Classifier 91.42 0.9142 0.9142
+Gradient Boosting Classifier 91.33 0.9133 0.9133
+KNN Classifier 90.72 0.9072 0.9072
+Logistic Regression 90.07 0.9007 0.9007
+Artificial Neural Network 91.51 0.9151 0.9151
+Stacking Ensemble Model 91.66 0.9166 0.9166
+Table III shows the accuracies (in percentage) of all the
+algorithms along with respective precision and recall score.
+From section 3.1, it can be inferred that input parameters are
+unlikely to hold a linear relationship with the crash severity
+level. However, Artificial Neural Network is known to be
+capable of learning and modelling complex and non-linear
+relationships. It can also discover unseen relationships and
+data after learning from a few inputs using the hidden layers
+present in the model. This cumulatively leads ANN to exhibit
+the highest accuracy of 91.51%.
+On the other hand, Random Forest Classifier displays an
+impressive accuracy of 91.42% due to a variety of salient
+features depicted by the algorithm. Random Forest Classifier
+differs from the Decision Tree Classifier in a way that it
+decorrelates the tree by splitting on a random subset of features
+thereby not allowing only the dominant predictors to be placed
+at the top level of each tree. This property allows the model
+to be unbiased even in case of high variance in the data.
+Since it divides the data into subsets, it can also be applied
+on the data with high dimensionality. These characteristics of
+Random Forest algorithm make it a suitable algorithm in all
+cases.
+As shown in Table 3, various algorithms were applied to
+find the Airplane Crash Severity, all of them possessing some
+strengths as well as some weaknesses. Based on the idea that
+different types of models are capable of solving different parts
+of problem, strength of all these models stacked together gave
+the strongest model i.e. Stacking Ensemble Model. Combining
+performances of the contributing models to improve the overall
+performance, this model exhibited the highest accuracy of
+91.66%.
+V. CONCLUSION AND FUTURE SCOPE
+It can be inferred from Section 2 that a lot of efforts have been
+put in predicting whether an airplane accident will take place
+or not, but only a little work attempts to predict the severity of
+those accidents. The paper bridges this gap by applying various
+algorithms and analysing their performance. This study also
+considers damage incurred to the airplane along with fatalities
+caused. The categorisation in severity levels depicts a broader
+view of crash accident.
+The paper proposed 7 different models for airplane crash severity prediction and combined the models into a stronger stacked
+model. For the efficacy of model, severity was categorized
+into 8 levels based on aircraft damage and casualties. The
+accuracies reported reassured the reliability of the model. The
+prediction system proposed is robust enough to be deployed
+in emergency situations as well as pre-flight analysis.
+The proposed model can be extrapolated to predict the severity
+of all types of aircraft crashes. If adequate data is available,
+the model can also be trained to take additional parameters
+such as experience of cabin crew, aircraft’s safety equipment,
+dimensions and weight of the aircraft etc. The model with
+minor tweaks can be integrated into simulation softwares to
+better equip the pilots for emergency situations as well as
+with the crash prediction systems in use, to get an idea of
+the severity if at all a crash occurs.
+REFERENCES
+[1] https://www.businesswire.com/news/home/20181002005004/en/AirTransport-Supports-65.5-Million-Jobs-and-2.7-Trillion-in-EconomicActivity
+[2] https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1298298/
+[3] Bhaya, Wesam. (2017). Review of Data Preprocessing Techniques in
+Data Mining. Journal of Engineering and Applied Sciences. 12. 4102-
+4107. 10.3923/jeasci.2017.4102.4107.
+[4] Mahesh, Batta. (2019). Machine Learning Algorithms - A Review.
+10.21275/ART20203995.
+[5] P. Mathur, S. K. Khatri and M. Sharma, ”Prediction of aviation accidents
+using logistic regression model,” 2017 International Conference on Infocom Technologies and Unmanned Systems (Trends and Future Directions) (ICTUS), 2017, pp. 725-728, doi: 10.1109/ICTUS.2017.8286102.
+[6] A. B. A. Christopher and S. A. alias Balamurugan, ”Data mining
+approaches for aircraft accidents prediction: An empirical study on
+Turkey airline,” 2013 IEEE International Conference ON Emerging
+Trends in Computing, Communication and Nanotechnology (ICECCN),
+2013, pp. 739-745, doi: 10.1109/ICE-CCN.2013.6528602.
+IEEE - 51525
+12th ICCCNT 2021
+July 6-8, 2021 - IIT - Kharagpur
+Kharagpur, India
+Authorized licensed use limited to: Alliance University. Downloaded on June 16,2025 at 06:37:56 UTC from IEEE Xplore. Restrictions apply.
+[7] Nikita Pande, Devyani Gupta, Jitendra Shreemali, Prasun Chakrabarti
+Predicting Fatalities in Air Accidents using CHAID XGBoost
+Generalized Linear Model Neural Network and Ensemble
+Models of Machine Learning. Volume-9 Issue-3S, March, 2020.
+https://doi.org/10.35940/ijeat.C1009.0393S20
+[8] M. Wu, D. Shan, Z. Wang, X. Sun, J. Liu and M. Sun, ”A Bayesian
+Network Model for Real-time Crash Prediction Based on Selected
+Variables by Random Forest,” 2019 5th International Conference on
+Transportation Information and Safety (ICTIS), 2019, pp. 670-677, doi:
+10.1109/ICTIS.2019.8883694.
+[9] Williams, J.K. Using random forests to diagnose aviation turbulence.
+Mach Learn 95, 51–70 (2014). https://doi.org/10.1007/s10994-013-
+5346-7
+[10] R. Alan Burnett and Dong Si. 2017. Prediction of Injuries and Fatalities
+in Aviation Accidents through Machine Learning. In Proceedings of the
+International Conference on Compute and Data Analysis (ICCDA ’17).
+Association for Computing Machinery, New York, NY, USA, 60–68.
+DOI:https://doi.org/10.1145/3093241.3093288
+[11] A. Omar Alkhamisi and R. Mehmood, ”An Ensemble Machine and
+Deep Learning Model for Risk Prediction in Aviation Systems,” 2020
+6th Conference on Data Science and Machine Learning Applications
+(CDMA), 2020, pp. 54-59, doi: 10.1109/CDMA47397.2020.00015.
+[12] Lee, Hyunseong & Li, Guoyi & Rai, Ashwin & Chattopadhyay, Aditi.
+(2019). Anomaly Detection of Aircraft System using Kernel-based
+Learning Algorithm. 10.2514/6.2019-1224.
+[13] Arnaldo Valdes, R. M., G´omez Comendador, V. F., Perez Sanz, L.,
+& Rodriguez Sanz, A. (2018). Prediction of aircraft safety incidents
+using Bayesian inference and hierarchical structures. Safety Science,
+104, 216–230.doi:10.1016/j.ssci.2018.01.008
+[14] D. Zhou, X. Zhuang, H. Zuo, H. Wang and H. Yan, ”Deep LearningBased Approach for Civil Aircraft Hazard Identification and Prediction,”
+in IEEE Access, vol. 8, pp. 103665-103683, 2020, doi: 10.1109/ACCESS.2020.2997371.
+[15] A. Mishra, K. K. Shrivastava, A. A. B. and N. A. Quadir, ”Reducing
+Commercial Aviation Fatalities Using Support Vector Machines,” 2019
+International Conference on Smart Systems and Inventive Technology
+(ICSSIT), 2019, pp. 360-364, doi: 10.1109/ICSSIT46314.2019.8987752.
+[16] S. Nimmagadda, S. Sivakumar, N. Kumar and D. Haritha, ”Predicting
+Airline Crash due to Birds Strike Using Machine Learning,” 2020 7th
+International Conference on Smart Structures and Systems (ICSSS),
+2020, pp. 1-4, doi: 10.1109/ICSSS49621.2020.9202137.
+[17] L. Wenqi, L. Dongyu and Y. Menghua, ”A model of traffic accident
+prediction based on convolutional neural network,” 2017 2nd IEEE International Conference on Intelligent Transportation Engineering (ICITE),
+2017, pp. 198-202, doi: 10.1109/ICITE.2017.8056908.
+[18] G. Kaur and H. Kaur, ”Prediction of the cause of accident and accident prone location on roads using data mining techniques,” 2017
+8th International Conference on Computing, Communication and Networking Technologies (ICCCNT), 2017, pp. 1-7, doi: 10.1109/ICCCNT.2017.8204001.
+IEEE - 51525
+12th ICCCNT 2021
+July 6-8, 2021 - IIT - Kharagpur
+Kharagpur, India
+Authorized licensed use limited to: Alliance University. Downloaded on June 16,2025 at 06:37:56 UTC from IEEE Xplore. Restrictions apply. 
