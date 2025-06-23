@@ -19,6 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, f1_score, classification_report, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
+import shap
 
 warnings.filterwarnings('ignore')
 sns.set_style('whitegrid')
@@ -346,12 +347,46 @@ def main():
     else:
         print('Fatalities column not found. Skipping ML.')
         return
-    # Feature selection: use basic features (can be expanded)
+    # Drop columns with >80% missing data
+    missing_threshold = 80
+    cols_to_drop = [col for col in df_ml.columns if df_ml[col].isnull().mean() * 100 > missing_threshold]
+    df_ml = df_ml.drop(columns=cols_to_drop)
+
+    # Group rare categories for Operator and Type
+    for cat_col in ['Operator', 'Type']:
+        if cat_col in df_ml.columns:
+            top_cats = df_ml[cat_col].value_counts().nlargest(10).index
+            df_ml[cat_col] = df_ml[cat_col].apply(lambda x: x if x in top_cats else 'Other')
+
+    # Impute missing values: median for numeric, mode (first value) for categorical (only if scalar)
+    for col in df_ml.columns:
+        if df_ml[col].dtype in [np.float64, np.int64]:
+            df_ml[col] = pd.to_numeric(df_ml[col], errors='coerce')
+            df_ml[col] = df_ml[col].fillna(df_ml[col].median())
+        elif df_ml[col].dtype == object:
+            mode_val = df_ml[col].mode()
+            fill_val = mode_val.iloc[0] if not mode_val.empty else 'Unknown'
+            # Only fill if fill_val is a scalar (not a list, dict, etc.)
+            if not isinstance(fill_val, (list, dict, set)):
+                df_ml[col] = df_ml[col].fillna(fill_val)
+
+    # Add 'Is_Recent' feature
+    if 'Year' in df_ml.columns:
+        df_ml['Is_Recent'] = (df_ml['Year'] > 2000).astype(int)
+
+    # Feature selection: use more informative features
     feature_cols = []
     if 'Year' in df_ml.columns:
         feature_cols.append('Year')
     if 'Aboard' in df_ml.columns:
         feature_cols.append('Aboard')
+    for col in [
+        'Safety_Score', 'Days_Since_Inspection', 'Total_Safety_Complaints',
+        'Control_Metric', 'Turbulence_In_gforces', 'Cabin_Temperature',
+        'Max_Elevation', 'Violations', 'Adverse_Weather_Metric', 'Is_Recent']:
+        if col in df_ml.columns:
+            feature_cols.append(col)
+    # Encoded categorical features
     if 'Flight_Type' in df_ml.columns:
         df_ml['Flight_Type_Code'] = df_ml['Flight_Type'].astype('category').cat.codes
         feature_cols.append('Flight_Type_Code')
@@ -366,19 +401,30 @@ def main():
         return
     X = df_ml[feature_cols]
     y = df_ml['Severe']
+
+    # Scale numeric features for XGBoost
+    from sklearn.preprocessing import StandardScaler
+    scaler = StandardScaler()
+    X_scaled = X.copy()
+    num_cols = X.select_dtypes(include=[np.number]).columns
+    X_scaled[num_cols] = scaler.fit_transform(X[num_cols])
+
     # Train/test split
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    # Random Forest
-    rf = RandomForestClassifier(n_estimators=100, random_state=42)
+    X_train_scaled, X_test_scaled = train_test_split(X_scaled, test_size=0.2, random_state=42, stratify=y)
+
+    # Random Forest with class_weight
+    rf = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
     rf.fit(X_train, y_train)
     y_pred_rf = rf.predict(X_test)
     acc_rf = accuracy_score(y_test, y_pred_rf)
     f1_rf = f1_score(y_test, y_pred_rf, average='weighted')
     print(f'Random Forest Accuracy: {acc_rf:.3f}, F1 Score: {f1_rf:.3f}')
-    # XGBoost
-    xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)
-    xgb_model.fit(X_train, y_train)
-    y_pred_xgb = xgb_model.predict(X_test)
+    # XGBoost with scale_pos_weight
+    scale_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
+    xgb_model = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42, scale_pos_weight=scale_pos_weight)
+    xgb_model.fit(X_train_scaled, y_train)
+    y_pred_xgb = xgb_model.predict(X_test_scaled)
     acc_xgb = accuracy_score(y_test, y_pred_xgb)
     f1_xgb = f1_score(y_test, y_pred_xgb, average='weighted')
     print(f'XGBoost Accuracy: {acc_xgb:.3f}, F1 Score: {f1_xgb:.3f}')
@@ -410,8 +456,236 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(vis_dir, 'model_accuracy_comparison_binary.png'))
     plt.close()
+    # SHAP Analysis (XAI) for Random Forest and XGBoost
+    print("\nRunning SHAP (XAI) analysis...")
+    shap_sample = X_test.sample(min(200, len(X_test)), random_state=42)
+    shap_sample_scaled = X_test_scaled.sample(min(200, len(X_test_scaled)), random_state=42)
+    # Random Forest SHAP
+    explainer_rf = shap.TreeExplainer(rf)
+    shap_values_rf = explainer_rf.shap_values(shap_sample)
+    if isinstance(shap_values_rf, list) and len(shap_values_rf) == 2:
+        shap_values_rf_plot = shap_values_rf[1] - shap_values_rf[0]
+    elif isinstance(shap_values_rf, np.ndarray):
+        shap_values_rf_plot = shap_values_rf
+    else:
+        shap_values_rf_plot = shap_values_rf[1] if isinstance(shap_values_rf, list) else shap_values_rf
+    plt.figure()
+    shap.summary_plot(shap_values_rf_plot, shap_sample, feature_names=feature_cols, show=False)
+    plt.title('SHAP Summary (Random Forest)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(vis_dir, 'shap_summary_rf.png'))
+    plt.close()
+    # XGBoost SHAP
+    explainer_xgb = shap.TreeExplainer(xgb_model)
+    shap_values_xgb = explainer_xgb.shap_values(shap_sample_scaled)
+    plt.figure()
+    shap.summary_plot(shap_values_xgb, shap_sample_scaled, feature_names=feature_cols, show=False)
+    plt.title('SHAP Summary (XGBoost)')
+    plt.tight_layout()
+    plt.savefig(os.path.join(vis_dir, 'shap_summary_xgb.png'))
+    plt.close()
+    print("SHAP summary plots saved in visualizations/.")
     print(f"\nVisualizations saved in: {vis_dir}")
     print("\nScript execution complete. All analysis performed in pure Python.")
+
+    # --- Experimental: Remove 'Aboard' and 'Year' for model training and SHAP analysis ---
+    print("\n[Experimental] Training models with 'Aboard' and 'Year' REMOVED from features...")
+    reduced_feature_cols = [col for col in feature_cols if col not in ['Aboard', 'Year']]
+    if not reduced_feature_cols:
+        print('No usable features after removing Aboard and Year. Skipping experimental section.')
+    else:
+        X_reduced = df_ml[reduced_feature_cols]
+        # Scale numeric features for XGBoost
+        X_reduced_scaled = X_reduced.copy()
+        num_cols_reduced = X_reduced.select_dtypes(include=[np.number]).columns
+        X_reduced_scaled[num_cols_reduced] = scaler.fit_transform(X_reduced[num_cols_reduced])
+        # Train/test split
+        X_train_r, X_test_r, y_train_r, y_test_r = train_test_split(X_reduced, y, test_size=0.2, random_state=42, stratify=y)
+        X_train_r_scaled, X_test_r_scaled = train_test_split(X_reduced_scaled, test_size=0.2, random_state=42, stratify=y)
+        # Random Forest
+        rf_r = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
+        rf_r.fit(X_train_r, y_train_r)
+        y_pred_rf_r = rf_r.predict(X_test_r)
+        acc_rf_r = accuracy_score(y_test_r, y_pred_rf_r)
+        print(f"[Experimental] Random Forest Accuracy (no 'Aboard'/'Year'): {acc_rf_r:.3f}")
+        # XGBoost
+        scale_pos_weight_r = (y_train_r == 0).sum() / (y_train_r == 1).sum()
+        xgb_r = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42, scale_pos_weight=scale_pos_weight_r)
+        xgb_r.fit(X_train_r_scaled, y_train_r)
+        y_pred_xgb_r = xgb_r.predict(X_test_r_scaled)
+        acc_xgb_r = accuracy_score(y_test_r, y_pred_xgb_r)
+        print(f"[Experimental] XGBoost Accuracy (no 'Aboard'/'Year'): {acc_xgb_r:.3f}")
+        # SHAP for Random Forest
+        shap_sample_r = X_test_r.sample(min(200, len(X_test_r)), random_state=42)
+        explainer_rf_r = shap.TreeExplainer(rf_r)
+        shap_values_rf_r = explainer_rf_r.shap_values(shap_sample_r)
+        if isinstance(shap_values_rf_r, list) and len(shap_values_rf_r) == 2:
+            shap_values_rf_r_plot = shap_values_rf_r[1] - shap_values_rf_r[0]
+        elif isinstance(shap_values_rf_r, np.ndarray):
+            shap_values_rf_r_plot = shap_values_rf_r
+        else:
+            shap_values_rf_r_plot = shap_values_rf_r[1] if isinstance(shap_values_rf_r, list) else shap_values_rf_r
+        plt.figure()
+        shap.summary_plot(shap_values_rf_r_plot, shap_sample_r, feature_names=reduced_feature_cols, show=False)
+        plt.title("SHAP Summary (Random Forest, no 'Aboard'/'Year')")
+        plt.tight_layout()
+        plt.savefig(os.path.join(vis_dir, 'shap_summary_rf_no_aboard_year.png'))
+        plt.close()
+        # SHAP for XGBoost
+        shap_sample_r_scaled = X_test_r_scaled.sample(min(200, len(X_test_r_scaled)), random_state=42)
+        explainer_xgb_r = shap.TreeExplainer(xgb_r)
+        shap_values_xgb_r = explainer_xgb_r.shap_values(shap_sample_r_scaled)
+        plt.figure()
+        shap.summary_plot(shap_values_xgb_r, shap_sample_r_scaled, feature_names=reduced_feature_cols, show=False)
+        plt.title("SHAP Summary (XGBoost, no 'Aboard'/'Year')")
+        plt.tight_layout()
+        plt.savefig(os.path.join(vis_dir, 'shap_summary_xgb_no_aboard_year.png'))
+        plt.close()
+        print("[Experimental] SHAP summary plots (no 'Aboard'/'Year') saved in visualizations/.")
+    # --- Experimental: Interpretable Features Only (Dashboard Features) ---
+    print("\n[Experimental] Training models using only interpretable dashboard features...")
+    # Prepare interpretable features
+    df_ml['Main_Cause'] = df_ml['Crash_Causes'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else 'Unknown/Other')
+    if 'Type' in df_ml.columns:
+        df_ml['Manufacturer'] = df_ml['Type'].str.extract(r'^([A-Za-z]+)')[0].fillna('Unknown')
+    interpretable_features = []
+    # Add main cause (label encoded)
+    if 'Main_Cause' in df_ml.columns:
+        df_ml['Main_Cause_Code'] = df_ml['Main_Cause'].astype('category').cat.codes
+        interpretable_features.append('Main_Cause_Code')
+    # Add operator (label encoded)
+    if 'Operator' in df_ml.columns:
+        df_ml['Operator_Code'] = df_ml['Operator'].astype('category').cat.codes
+        interpretable_features.append('Operator_Code')
+    # Add manufacturer (label encoded)
+    if 'Manufacturer' in df_ml.columns:
+        df_ml['Manufacturer_Code'] = df_ml['Manufacturer'].astype('category').cat.codes
+        interpretable_features.append('Manufacturer_Code')
+    # Add flight type (label encoded)
+    if 'Flight_Type' in df_ml.columns:
+        df_ml['Flight_Type_Code'] = df_ml['Flight_Type'].astype('category').cat.codes
+        interpretable_features.append('Flight_Type_Code')
+    # Prepare X and y
+    if not interpretable_features:
+        print('No interpretable features found. Skipping this experiment.')
+    else:
+        X_interpret = df_ml[interpretable_features]
+        y_interpret = df_ml['Severe']
+        # Train/test split
+        X_train_i, X_test_i, y_train_i, y_test_i = train_test_split(X_interpret, y_interpret, test_size=0.2, random_state=42, stratify=y_interpret)
+        # Random Forest
+        rf_i = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
+        rf_i.fit(X_train_i, y_train_i)
+        y_pred_rf_i = rf_i.predict(X_test_i)
+        acc_rf_i = accuracy_score(y_test_i, y_pred_rf_i)
+        print(f"[Experimental] Random Forest Accuracy (interpretable features): {acc_rf_i:.3f}")
+        # XGBoost
+        scale_pos_weight_i = (y_train_i == 0).sum() / (y_train_i == 1).sum()
+        xgb_i = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42, scale_pos_weight=scale_pos_weight_i)
+        xgb_i.fit(X_train_i, y_train_i)
+        y_pred_xgb_i = xgb_i.predict(X_test_i)
+        acc_xgb_i = accuracy_score(y_test_i, y_pred_xgb_i)
+        print(f"[Experimental] XGBoost Accuracy (interpretable features): {acc_xgb_i:.3f}")
+        # SHAP for Random Forest
+        shap_sample_i = X_test_i.sample(min(200, len(X_test_i)), random_state=42)
+        explainer_rf_i = shap.TreeExplainer(rf_i)
+        shap_values_rf_i = explainer_rf_i.shap_values(shap_sample_i)
+        if isinstance(shap_values_rf_i, list) and len(shap_values_rf_i) == 2:
+            shap_values_rf_i_plot = shap_values_rf_i[1] - shap_values_rf_i[0]
+        elif isinstance(shap_values_rf_i, np.ndarray):
+            shap_values_rf_i_plot = shap_values_rf_i
+        else:
+            shap_values_rf_i_plot = shap_values_rf_i[1] if isinstance(shap_values_rf_i, list) else shap_values_rf_i
+        plt.figure()
+        shap.summary_plot(shap_values_rf_i_plot, shap_sample_i, feature_names=interpretable_features, show=False)
+        plt.title("SHAP Summary (Random Forest, interpretable features)")
+        plt.tight_layout()
+        plt.savefig(os.path.join(vis_dir, 'shap_summary_rf_interpretable.png'))
+        plt.close()
+        # SHAP for XGBoost
+        shap_sample_xgb_i = X_test_i.sample(min(200, len(X_test_i)), random_state=42)
+        explainer_xgb_i = shap.TreeExplainer(xgb_i)
+        shap_values_xgb_i = explainer_xgb_i.shap_values(shap_sample_xgb_i)
+        plt.figure()
+        shap.summary_plot(shap_values_xgb_i, shap_sample_xgb_i, feature_names=interpretable_features, show=False)
+        plt.title("SHAP Summary (XGBoost, interpretable features)")
+        plt.tight_layout()
+        plt.savefig(os.path.join(vis_dir, 'shap_summary_xgb_interpretable.png'))
+        plt.close()
+        print("[Experimental] SHAP summary plots (interpretable features) saved in visualizations/.")
+    # --- Experimental: Strict Dashboard Features Only ---
+    print("\n[Experimental] Training models using ONLY dashboard-visualized features (cause, operator, manufacturer, severity category, flight type)...")
+    # Prepare dashboard features
+    df_ml['Main_Cause'] = df_ml['Crash_Causes'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else 'Unknown/Other')
+    if 'Type' in df_ml.columns:
+        df_ml['Manufacturer'] = df_ml['Type'].str.extract(r'^([A-Za-z]+)')[0].fillna('Unknown')
+    if 'Fatalities' in df_ml.columns:
+        df_ml['Severity_Category'] = pd.cut(df_ml['Fatalities'], bins=[-1, 0, 5, 25, 100, float('inf')], labels=['No Fatalities', 'Minor (1-5)', 'Moderate (6-25)', 'Major (26-100)', 'Catastrophic (100+)'])
+    dashboard_features = []
+    # Main cause (label encoded)
+    if 'Main_Cause' in df_ml.columns:
+        df_ml['Main_Cause_Code'] = df_ml['Main_Cause'].astype('category').cat.codes
+        dashboard_features.append('Main_Cause_Code')
+    # Operator (label encoded)
+    if 'Operator' in df_ml.columns:
+        df_ml['Operator_Code'] = df_ml['Operator'].astype('category').cat.codes
+        dashboard_features.append('Operator_Code')
+    # Manufacturer (label encoded)
+    if 'Manufacturer' in df_ml.columns:
+        df_ml['Manufacturer_Code'] = df_ml['Manufacturer'].astype('category').cat.codes
+        dashboard_features.append('Manufacturer_Code')
+    # Flight type (label encoded)
+    if 'Flight_Type' in df_ml.columns:
+        df_ml['Flight_Type_Code'] = df_ml['Flight_Type'].astype('category').cat.codes
+        dashboard_features.append('Flight_Type_Code')
+    # Prepare X and y
+    if not dashboard_features:
+        print('No dashboard features found. Skipping this experiment.')
+    else:
+        X_dash = df_ml[dashboard_features]
+        y_dash = df_ml['Severe']
+        # Train/test split
+        X_train_d, X_test_d, y_train_d, y_test_d = train_test_split(X_dash, y_dash, test_size=0.2, random_state=42, stratify=y_dash)
+        # Random Forest
+        rf_d = RandomForestClassifier(n_estimators=100, random_state=42, class_weight='balanced')
+        rf_d.fit(X_train_d, y_train_d)
+        y_pred_rf_d = rf_d.predict(X_test_d)
+        acc_rf_d = accuracy_score(y_test_d, y_pred_rf_d)
+        print(f"[Experimental] Random Forest Accuracy (dashboard features): {acc_rf_d:.3f}")
+        # XGBoost
+        scale_pos_weight_d = (y_train_d == 0).sum() / (y_train_d == 1).sum()
+        xgb_d = XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42, scale_pos_weight=scale_pos_weight_d)
+        xgb_d.fit(X_train_d, y_train_d)
+        y_pred_xgb_d = xgb_d.predict(X_test_d)
+        acc_xgb_d = accuracy_score(y_test_d, y_pred_xgb_d)
+        print(f"[Experimental] XGBoost Accuracy (dashboard features): {acc_xgb_d:.3f}")
+        # SHAP for Random Forest
+        shap_sample_d = X_test_d.sample(min(200, len(X_test_d)), random_state=42)
+        explainer_rf_d = shap.TreeExplainer(rf_d)
+        shap_values_rf_d = explainer_rf_d.shap_values(shap_sample_d)
+        if isinstance(shap_values_rf_d, list) and len(shap_values_rf_d) == 2:
+            shap_values_rf_d_plot = shap_values_rf_d[1] - shap_values_rf_d[0]
+        elif isinstance(shap_values_rf_d, np.ndarray):
+            shap_values_rf_d_plot = shap_values_rf_d
+        else:
+            shap_values_rf_d_plot = shap_values_rf_d[1] if isinstance(shap_values_rf_d, list) else shap_values_rf_d
+        plt.figure()
+        shap.summary_plot(shap_values_rf_d_plot, shap_sample_d, feature_names=dashboard_features, show=False)
+        plt.title("SHAP Summary (Random Forest, dashboard features)")
+        plt.tight_layout()
+        plt.savefig(os.path.join(vis_dir, 'shap_summary_rf_dashboard.png'))
+        plt.close()
+        # SHAP for XGBoost
+        shap_sample_xgb_d = X_test_d.sample(min(200, len(X_test_d)), random_state=42)
+        explainer_xgb_d = shap.TreeExplainer(xgb_d)
+        shap_values_xgb_d = explainer_xgb_d.shap_values(shap_sample_xgb_d)
+        plt.figure()
+        shap.summary_plot(shap_values_xgb_d, shap_sample_xgb_d, feature_names=dashboard_features, show=False)
+        plt.title("SHAP Summary (XGBoost, dashboard features)")
+        plt.tight_layout()
+        plt.savefig(os.path.join(vis_dir, 'shap_summary_xgb_dashboard.png'))
+        plt.close()
+        print("[Experimental] SHAP summary plots (dashboard features) saved in visualizations/.")
 
 if __name__ == "__main__":
     main()

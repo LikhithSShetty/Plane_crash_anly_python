@@ -1,0 +1,9 @@
+ (All Features)
+Random Forest Accuracy: 0.986
+XGBoost Accuracy: 0.880
+ Features with 'Aboard' and 'Year' Removed
+Random Forest Accuracy: 0.803
+XGBoost Accuracy: 0.792
+Features Only (Cause, Operator, Manufacturer, Flight Type)
+Random Forest Accuracy: 0.769
+XGBoost Accuracy: 0.656
